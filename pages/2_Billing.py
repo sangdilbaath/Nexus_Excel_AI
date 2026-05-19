@@ -21,7 +21,7 @@ st.set_page_config(
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
-[data-testid="stSidebar"] { display: none !important; }
+
 
 .checkout-wrap { max-width: 540px; margin: 2rem auto; animation: fadeUp 0.35s ease both; }
 
