@@ -157,3 +157,36 @@ def days_remaining(user: dict) -> int:
         return max(0, diff.days)
     except Exception:
         return 0
+        # ── Admin Analytics & Control ──────────────────────────────────
+
+def get_admin_stats() -> dict:
+    """Returns aggregated data for the admin dashboard."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        c = conn.cursor()
+        # Total users
+        c.execute("SELECT COUNT(*) FROM users")
+        total = c.fetchone()[0]
+        
+        # Breakdown by plan
+        c.execute("SELECT plan_type, COUNT(*) FROM users GROUP BY plan_type")
+        plans = dict(c.fetchall())
+        
+        conn.close()
+        return {"total_users": total, "plans": plans}
+    except:
+        return {"total_users": 0, "plans": {}}
+
+def block_user_trial(email: str) -> bool:
+    """Manually forces a user's trial to expire to block their access."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        c = conn.cursor()
+        # Set end date to yesterday to effectively expire it
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("UPDATE users SET trial_end_date = ? WHERE email = ?", (yesterday, email))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        return False
