@@ -116,4 +116,3 @@ for key, default in {
 # ============================================================
 def clean_ai_code(raw: str) -> str:
     raw = re.sub(r"
-http://googleusercontent.com/immersive_entry_chip/0
