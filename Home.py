@@ -1,13 +1,13 @@
 """
 Home.py — Nexus Excel AI · Landing Page
-Entry point: email capture → redirect to Pricing.
+Entry point: email capture → redirect to Pricing or App.
 """
 
 import streamlit as st
-import sys, os
+import sys, os, time
 sys.path.insert(0, os.path.dirname(__file__))
 
-from database import init_db, upsert_user
+from database import init_db, upsert_user, get_user, activate_plan, is_trial_expired
 from styles import GLOBAL_CSS
 
 # ── Page config ───────────────────────────────────────────────
@@ -57,8 +57,6 @@ st.markdown("""
     line-height: 1.7;
 }
 .email-card {
-    max-width: 480px;
-    margin: 0 auto;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -139,34 +137,75 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Email Capture ─────────────────────────────────────────────
+# ── Login / Master Key Section ────────────────────────────────
 _, col_card, _ = st.columns([1, 1.6, 1])
 with col_card:
-    st.markdown("""
-    <div class="email-card">
-        <div class="email-card-title">Get started for free</div>
-        <div class="email-card-sub">Enter your email to unlock your plan — no credit card required to view pricing.</div>
-    </div>
-    """, unsafe_allow_html=True)
+    tab_user, tab_admin = st.tabs(["🚀 User Login", "👑 Master Key"])
+    
+    with tab_user:
+        st.markdown("""
+        <div class="email-card">
+            <div class="email-card-title">Get started or Log in</div>
+            <div class="email-card-sub">Enter your email to unlock your plan or resume your session.</div>
+            <br>
+        """, unsafe_allow_html=True)
 
-    email_input = st.text_input(
-        "email_field",
-        placeholder="you@company.com",
-        label_visibility="collapsed",
-    )
-    st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
-    go_btn = st.button("Continue  →", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        email_input = st.text_input(
+            "email_field",
+            placeholder="you@company.com",
+            label_visibility="collapsed",
+            key="user_email"
+        )
+        st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
+        go_btn = st.button("Continue  →", use_container_width=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
-    if go_btn:
-        raw = email_input.strip().lower()
-        if "@" not in raw or "." not in raw.split("@")[-1]:
-            st.error("Please enter a valid email address.")
-        else:
-            user = upsert_user(raw)
-            st.session_state["email"] = raw
-            st.session_state["user"]  = user
-            st.switch_page("pages/1_Pricing.py")
+        if go_btn:
+            raw = email_input.strip().lower()
+            if "@" not in raw or "." not in raw.split("@")[-1]:
+                st.error("Please enter a valid email address.")
+            else:
+                user = upsert_user(raw)
+                st.session_state["email"] = raw
+                st.session_state["user"]  = user
+
+                # ── CRITICAL FIX: Direct returning active users to the App
+                if user.get("has_payment_on_file"):
+                    if not is_trial_expired(user):
+                        st.switch_page("pages/3_App.py")
+
+                # If new user or expired trial, go to pricing
+                st.switch_page("pages/1_Pricing.py")
+
+    with tab_admin:
+        st.markdown("""
+        <div class="email-card">
+            <div class="email-card-title">Admin Access</div>
+            <div class="email-card-sub">Strictly restricted to authorized administrator. Bypasses all limits.</div>
+            <br>
+        """, unsafe_allow_html=True)
+        
+        admin_email = st.text_input("Admin Email", placeholder="admin@domain.com", key="admin_email")
+        admin_pass = st.text_input("Password", type="password", key="admin_pass")
+
+        st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
+        admin_btn = st.button("Unlock Dashboard  →", use_container_width=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+        if admin_btn:
+            if admin_email.strip().lower() == "sangdilsingh62@gmail.com" and admin_pass == "1322":
+                upsert_user(admin_email)
+                # Force activation of max plan
+                admin_user = activate_plan(admin_email, "pro")
+                st.session_state["email"] = admin_email
+                st.session_state["user"] = admin_user
+                st.session_state["is_admin"] = True
+                
+                st.success("✅ Master Key Accepted! Booting Dashboard...")
+                time.sleep(1.2)
+                st.switch_page("pages/3_App.py")
+            else:
+                st.error("❌ Access Denied: Unrecognized email or incorrect password.")
 
 # ── Feature Strip ─────────────────────────────────────────────
 st.markdown("""
