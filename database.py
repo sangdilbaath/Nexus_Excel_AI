@@ -157,8 +157,9 @@ def days_remaining(user: dict) -> int:
         return max(0, diff.days)
     except Exception:
         return 0
-        # ── Admin Analytics & Control ──────────────────────────────────
 
+
+# ── Admin Analytics & Control ──────────────────────────────────
 def get_admin_stats() -> dict:
     """Returns aggregated data for the admin dashboard."""
     try:
@@ -176,6 +177,7 @@ def get_admin_stats() -> dict:
         return {"total_users": total, "plans": plans}
     except:
         return {"total_users": 0, "plans": {}}
+
 
 def block_user_trial(email: str) -> bool:
     """Manually forces a user's trial to expire to block their access."""
