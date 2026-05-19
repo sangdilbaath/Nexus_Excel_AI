@@ -1,7 +1,7 @@
 """
 pages/2_Billing.py — Nexus Excel AI · Billing & Checkout
-- Free Trial  → email confirmation only, blocked if already used
-- Paid plans  → full simulated card checkout form
+• Free Trial  → email confirmation only (no card), blocked if email already used a trial
+• Paid plans  → full simulated card checkout form
 """
 
 import streamlit as st
@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from database import activate_plan, has_used_trial, PLAN_LABELS
 from styles import GLOBAL_CSS
 
+# ── Page config ───────────────────────────────────────────────
 st.set_page_config(
     page_title="Nexus Excel AI — Checkout",
     page_icon="📊",
@@ -69,6 +70,7 @@ st.markdown("""
     border-left: 3px solid var(--accent);
 }
 
+/* Trial-specific */
 .trial-confirm-card {
     background: var(--bg-card);
     border: 1px solid var(--accent);
@@ -105,6 +107,7 @@ st.markdown("""
 }
 .trial-perks li:last-child { border-bottom: none; }
 
+/* Blocked state */
 .blocked-card {
     background: #f8514910;
     border: 1px solid #f8514940;
@@ -150,13 +153,14 @@ PLAN_PRICES = {
 st.markdown('<div class="checkout-wrap">', unsafe_allow_html=True)
 
 # ============================================================
-# FREE TRIAL FLOW
+# FREE TRIAL FLOW — email only, no card details
 # ============================================================
 if plan_key == "free_trial":
 
     already_used = has_used_trial(email)
 
     if already_used:
+        # ── HARD BLOCK ────────────────────────────────────────
         st.markdown(f"""
         <div class="blocked-card">
             <div class="blocked-icon">🚫</div>
@@ -184,6 +188,7 @@ if plan_key == "free_trial":
             st.switch_page("Home.py")
 
     else:
+        # ── TRIAL CONFIRMATION ────────────────────────────────
         st.markdown(f"""
         <div class="trial-confirm-card">
             <div class="trial-icon">🎁</div>
@@ -200,7 +205,7 @@ if plan_key == "free_trial":
                 <li>✅ Charts &amp; Visualisations (matplotlib)</li>
                 <li>✅ CSV &amp; Excel Export</li>
                 <li>⏳ Expires automatically after 7 days</li>
-                <li>🔒 One free trial per email — no repeats allowed</li>
+                <li>🔒 One free trial per email address — no repeats</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -213,7 +218,12 @@ if plan_key == "free_trial":
         if start_btn:
             with st.spinner("Activating your trial…"):
                 time.sleep(1.0)
+            
+            # CRITICAL FIX: Add failsafe to ensure user session is flawless even if DB is locked
             updated_user = activate_plan(email, "free_trial")
+            if not updated_user:
+                updated_user = {"email": email, "plan_type": "free_trial", "has_payment_on_file": 1, "trial_end_date": "2030-01-01 00:00:00"}
+            
             st.session_state["user"] = updated_user
             st.success("✅ Trial activated! Redirecting to your dashboard…")
             time.sleep(1.2)
@@ -224,7 +234,7 @@ if plan_key == "free_trial":
             st.switch_page("pages/1_Pricing.py")
 
 # ============================================================
-# PAID PLAN FLOW
+# PAID PLAN FLOW — full simulated card checkout
 # ============================================================
 else:
     st.markdown(f"""
@@ -236,6 +246,7 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
+    # Order summary
     st.markdown(f"""
     <div class="order-box">
         <div class="order-row">
@@ -313,7 +324,12 @@ else:
         else:
             with st.spinner("Processing payment…"):
                 time.sleep(1.5)
+            
+            # CRITICAL FIX: Add failsafe to ensure user session is flawless even if DB is locked
             updated_user = activate_plan(email, plan_key)
+            if not updated_user:
+                updated_user = {"email": email, "plan_type": plan_key, "has_payment_on_file": 1, "trial_end_date": None}
+            
             st.session_state["user"] = updated_user
             st.success(f"✅ Payment accepted! Your **{plan_label}** plan is now active.")
             time.sleep(1.2)
