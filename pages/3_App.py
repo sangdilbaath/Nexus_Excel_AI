@@ -30,33 +30,40 @@ init_db()
 # ============================================================
 # ACCESS CONTROL
 # ============================================================
-user = st.session_state.get("user")
+is_admin = st.session_state.get("is_admin", False)
 
-# No user at all → back to home
-if not user:
-    st.switch_page("Home.py")
-
-# Refresh user from DB (in case page was reloaded)
-from database import get_user
-email = st.session_state.get("email", user.get("email", ""))
-if email:
-    fresh = get_user(email)
-    if fresh:
-        user = fresh
-        st.session_state["user"] = fresh
-
-# Not paid → billing
-if not user.get("has_payment_on_file"):
-    st.switch_page("pages/2_Billing.py")
-
-plan       = user.get("plan_type", "none")
-trial_exp  = is_trial_expired(user)
-is_admin   = st.session_state.get("is_admin", False)
-
-# ── Master Key Overrides ──────────────────────────────────────
 if is_admin:
-    trial_exp = False
+    # Completely bypass all database and payment checks for the Master Key
+    user = st.session_state.get("user", {
+        "email": "sangdilsingh62@gmail.com",
+        "plan_type": "pro",
+        "has_payment_on_file": 1,
+        "trial_end_date": None
+    })
     plan = "pro"
+    trial_exp = False
+else:
+    user = st.session_state.get("user")
+    
+    # No user at all → back to home
+    if not user:
+        st.switch_page("Home.py")
+
+    # Refresh user from DB (in case page was reloaded)
+    from database import get_user
+    email = st.session_state.get("email", user.get("email", ""))
+    if email:
+        fresh = get_user(email)
+        if fresh:
+            user = fresh
+            st.session_state["user"] = fresh
+
+    # Not paid → billing
+    if not user.get("has_payment_on_file"):
+        st.switch_page("pages/2_Billing.py")
+
+    plan       = user.get("plan_type", "none")
+    trial_exp  = is_trial_expired(user)
 
 # ── Trial expiry wall ─────────────────────────────────────────
 if trial_exp:
@@ -115,7 +122,6 @@ for key, default in {
 # HELPERS
 # ============================================================
 def clean_ai_code(raw: str) -> str:
-    # Using `{3}` syntax below prevents markdown parsers from breaking during copy-paste
     raw = re.sub(r"`{3}(?:python)?", "", raw, flags=re.IGNORECASE)
     raw = re.sub(r"`{3}", "", raw)
     return raw.strip()
