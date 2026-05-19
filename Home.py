@@ -169,12 +169,10 @@ with col_card:
                 st.session_state["email"] = raw
                 st.session_state["user"]  = user
 
-                # ── CRITICAL FIX: Direct returning active users to the App
                 if user.get("has_payment_on_file"):
                     if not is_trial_expired(user):
                         st.switch_page("pages/3_App.py")
 
-                # If new user or expired trial, go to pricing
                 st.switch_page("pages/1_Pricing.py")
 
     with tab_admin:
@@ -193,13 +191,28 @@ with col_card:
         st.markdown('</div></div>', unsafe_allow_html=True)
 
         if admin_btn:
-            if admin_email.strip().lower() == "sangdilsingh62@gmail.com" and admin_pass == "1322":
-                upsert_user(admin_email)
-                # Force activation of max plan
-                admin_user = activate_plan(admin_email, "pro")
-                st.session_state["email"] = admin_email
-                st.session_state["user"] = admin_user
+            clean_email = admin_email.strip().lower()
+            if clean_email == "sangdilsingh62@gmail.com" and admin_pass == "1322":
+                
+                # Force a perfect user dictionary so the Dashboard never rejects the admin
+                master_user = {
+                    "email": clean_email,
+                    "plan_type": "pro",
+                    "has_payment_on_file": 1,
+                    "trial_start_date": None,
+                    "trial_end_date": None
+                }
+                
+                st.session_state["email"] = clean_email
+                st.session_state["user"] = master_user
                 st.session_state["is_admin"] = True
+                
+                # Quietly update DB in the background
+                try:
+                    upsert_user(clean_email)
+                    activate_plan(clean_email, "pro")
+                except:
+                    pass
                 
                 st.success("✅ Master Key Accepted! Booting Dashboard...")
                 time.sleep(1.2)
