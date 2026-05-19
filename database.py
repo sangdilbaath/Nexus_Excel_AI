@@ -149,6 +149,3 @@ def has_used_trial(email):
     
     # If there is a date in the database, they have used the trial
     return result is not None and result[0] is not None
-
- a date in the database, they have used the trial
-    return result is not None and result[0] is not None
