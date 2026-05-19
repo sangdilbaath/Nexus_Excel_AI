@@ -34,10 +34,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .block-container { padding: 2rem 2.5rem !important; max-width: 1200px; }
 #MainMenu, footer, header { visibility: hidden; }
 
-/* Hide auto sidebar nav */
-[data-testid="stSidebarNavItems"] { display: none !important; }
-[data-testid="stSidebarNavSeparator"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
+
 
 /* Buttons */
 .stButton > button {
