@@ -19,7 +19,7 @@ st.set_page_config(
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
-[data-testid="stSidebar"] { display: none !important; }
+
 
 /* Pricing grid */
 .pricing-header {
