@@ -102,3 +102,48 @@ def days_remaining(user: dict) -> int:
     end  = datetime.strptime(user["trial_end_date"], "%Y-%m-%d %H:%M:%S")
     diff = end - datetime.now()
     return max(0, diff.days)
+
+from datetime import datetime, timedelta
+
+# --- PLAN CONFIGURATION ---
+PLAN_LABELS = {
+    'none': 'No Plan',
+    'free_trial': '7-Day Free Trial',
+    'basic': 'Basic Plan',
+    'premium': 'Premium Plan',
+    'pro': 'Pro Plan'
+}
+
+# --- BILLING & PLAN FUNCTIONS ---
+def activate_plan(email, plan_type):
+    """Activates the user's plan and calculates trial dates if needed."""
+    conn = get_connection() # Uses your existing connection function
+    cursor = conn.cursor()
+    
+    has_payment = True
+    trial_start = None
+    trial_end = None
+    
+    if plan_type == 'free_trial':
+        trial_start = datetime.now()
+        trial_end = trial_start + timedelta(days=7)
+        
+    cursor.execute('''
+        UPDATE users 
+        SET plan_type = ?, has_payment_on_file = ?, trial_start_date = ?, trial_end_date = ?
+        WHERE email = ?
+    ''', (plan_type, has_payment, trial_start, trial_end, email))
+    
+    conn.commit()
+    conn.close()
+
+def has_used_trial(email):
+    """Checks if a user has already used their 7-day free trial."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT trial_start_date FROM users WHERE email = ?', (email,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    # If there is a date in the database, they have used the trial
+    return result is not None and result[0] is not None
