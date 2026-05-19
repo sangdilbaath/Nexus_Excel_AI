@@ -34,7 +34,9 @@ html, body, [data-testid="stAppViewContainer"] {
 .block-container { padding: 2rem 2.5rem !important; max-width: 1200px; }
 #MainMenu, footer, header { visibility: hidden; }
 
-
+/* Hide auto sidebar nav, but keep toggle enabled */
+[data-testid="stSidebarNavItems"] { display: none !important; }
+[data-testid="stSidebarNavSeparator"] { display: none !important; }
 
 /* Buttons */
 .stButton > button {
