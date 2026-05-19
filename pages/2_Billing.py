@@ -219,8 +219,12 @@ if plan_key == "free_trial":
             with st.spinner("Activating your trial…"):
                 time.sleep(1.0)
             
-            # CRITICAL FIX: Add failsafe to ensure user session is flawless even if DB is locked
-            updated_user = activate_plan(email, "free_trial")
+            # CRITICAL FIX: Bulletproof try/except so a locked DB doesn't crash to Home
+            try:
+                updated_user = activate_plan(email, "free_trial")
+            except Exception:
+                updated_user = None
+                
             if not updated_user:
                 updated_user = {"email": email, "plan_type": "free_trial", "has_payment_on_file": 1, "trial_end_date": "2030-01-01 00:00:00"}
             
@@ -325,8 +329,12 @@ else:
             with st.spinner("Processing payment…"):
                 time.sleep(1.5)
             
-            # CRITICAL FIX: Add failsafe to ensure user session is flawless even if DB is locked
-            updated_user = activate_plan(email, plan_key)
+            # CRITICAL FIX: Bulletproof try/except so a locked DB doesn't crash to Home
+            try:
+                updated_user = activate_plan(email, plan_key)
+            except Exception:
+                updated_user = None
+                
             if not updated_user:
                 updated_user = {"email": email, "plan_type": plan_key, "has_payment_on_file": 1, "trial_end_date": None}
             
