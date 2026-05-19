@@ -37,7 +37,7 @@ html, body, [data-testid="stAppViewContainer"] {
 /* Hide auto sidebar nav */
 [data-testid="stSidebarNavItems"] { display: none !important; }
 [data-testid="stSidebarNavSeparator"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
+[data-testid="collapsedControl"] { display: flex !important; }
 
 /* Buttons */
 .stButton > button {
