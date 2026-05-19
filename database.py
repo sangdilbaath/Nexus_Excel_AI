@@ -103,6 +103,7 @@ def days_remaining(user: dict) -> int:
     diff = end - datetime.now()
     return max(0, diff.days)
 
+import sqlite3
 from datetime import datetime, timedelta
 
 # --- PLAN CONFIGURATION ---
@@ -117,7 +118,8 @@ PLAN_LABELS = {
 # --- BILLING & PLAN FUNCTIONS ---
 def activate_plan(email, plan_type):
     """Activates the user's plan and calculates trial dates if needed."""
-    conn = get_connection() # Uses your existing connection function
+    # Connect directly to the SQLite file
+    conn = sqlite3.connect('nexus.db') 
     cursor = conn.cursor()
     
     has_payment = True
@@ -139,11 +141,14 @@ def activate_plan(email, plan_type):
 
 def has_used_trial(email):
     """Checks if a user has already used their 7-day free trial."""
-    conn = get_connection()
+    conn = sqlite3.connect('nexus.db')
     cursor = conn.cursor()
     cursor.execute('SELECT trial_start_date FROM users WHERE email = ?', (email,))
     result = cursor.fetchone()
     conn.close()
     
     # If there is a date in the database, they have used the trial
+    return result is not None and result[0] is not None
+
+ a date in the database, they have used the trial
     return result is not None and result[0] is not None
