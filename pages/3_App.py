@@ -240,7 +240,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Master Key Badge
+    # Master Key Badge & Admin Panel
     if is_admin:
         st.markdown("""
         <div style="background:#f8514915; border:1px solid #f8514950; border-radius:8px;
@@ -250,6 +250,18 @@ with st.sidebar:
             </span>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Admin Stats in Sidebar
+        st.markdown('<div class="section-label">👑 Admin Controls</div>', unsafe_allow_html=True)
+        stats = get_admin_stats()
+        st.info(f"Users: {stats.get('total_users', 0)} | Pro: {stats.get('plans', {}).get('pro', 0)} | Trial: {stats.get('plans', {}).get('free_trial', 0)}")
+        
+        target_email = st.text_input("Block Trial Email:", placeholder="user@email.com")
+        if st.button("Block Access"):
+            if block_user_trial(target_email):
+                st.success("Blocked.")
+            else:
+                st.error("Failed.")
 
     # Plan badge
     plan_color = {"free_trial": "#e3b341", "basic": "#8b949e", "premium": "#0099ff", "pro": "#00d4aa"}.get(plan, "#8b949e")
