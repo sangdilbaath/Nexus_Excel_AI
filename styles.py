@@ -32,7 +32,7 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 [data-testid="stSidebar"] * { color: var(--text-primary) !important; }
 .block-container { padding: 2rem 2.5rem !important; max-width: 1200px; }
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer, header
 
 /* Hide auto sidebar nav, but keep toggle enabled */
 [data-testid="stSidebarNavItems"] { display: none !important; }
