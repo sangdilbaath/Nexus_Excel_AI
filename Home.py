@@ -4,7 +4,7 @@ Entry point: email capture → redirect to Pricing or App.
 """
 
 import streamlit as st
-import sys, os, time
+import sys, os, time, re
 sys.path.insert(0, os.path.dirname(__file__))
 
 from database import init_db, upsert_user, activate_plan, is_trial_expired
@@ -162,18 +162,30 @@ with col_card:
 
         if go_btn:
             raw = email_input.strip().lower()
-            if "@" not in raw or "." not in raw.split("@")[-1]:
-                st.error("Please enter a valid email address.")
+            
+            # 1. Strict Regex Pattern for real email formats
+            email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+            
+            if not re.match(email_pattern, raw):
+                st.error("⚠️ Please enter a valid email address (e.g., name@company.com).")
             else:
-                user = upsert_user(raw)
-                st.session_state["email"] = raw
-                st.session_state["user"]  = user
+                # 2. Blocklist for obvious fake/test domains
+                domain = raw.split('@')[-1]
+                blocked_domains = ["test.com", "example.com", "fake.com", "mailinator.com", "tempmail.com"]
+                
+                if domain in blocked_domains:
+                    st.error("⚠️ Please use a real personal or work email address.")
+                else:
+                    # 3. If it passes, proceed to database
+                    user = upsert_user(raw)
+                    st.session_state["email"] = raw
+                    st.session_state["user"]  = user
 
-                if user.get("has_payment_on_file"):
-                    if not is_trial_expired(user):
-                        st.switch_page("pages/3_App.py")
+                    if user.get("has_payment_on_file"):
+                        if not is_trial_expired(user):
+                            st.switch_page("pages/3_App.py")
 
-                st.switch_page("pages/1_Pricing.py")
+                    st.switch_page("pages/1_Pricing.py")
 
     with tab_admin:
         st.markdown("""
