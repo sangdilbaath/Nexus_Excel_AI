@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from database import init_db, is_trial_expired, days_remaining, PLAN_LABELS, get_admin_stats, block_user_trial
+from database import init_db, is_trial_expired, days_remaining, PLAN_LABELS
 from styles import GLOBAL_CSS, APP_CSS
 
 # ── Page config ───────────────────────────────────────────────
@@ -240,7 +240,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Master Key Badge & Admin Panel
+    # Master Key Badge
     if is_admin:
         st.markdown("""
         <div style="background:#f8514915; border:1px solid #f8514950; border-radius:8px;
@@ -250,18 +250,6 @@ with st.sidebar:
             </span>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Admin Stats in Sidebar
-        st.markdown('<div class="section-label">👑 Admin Controls</div>', unsafe_allow_html=True)
-        stats = get_admin_stats()
-        st.info(f"Users: {stats.get('total_users', 0)} | Pro: {stats.get('plans', {}).get('pro', 0)} | Trial: {stats.get('plans', {}).get('free_trial', 0)}")
-        
-        target_email = st.text_input("Block Trial Email:", placeholder="user@email.com")
-        if st.button("Block Access"):
-            if block_user_trial(target_email):
-                st.success("Blocked.")
-            else:
-                st.error("Failed.")
 
     # Plan badge
     plan_color = {"free_trial": "#e3b341", "basic": "#8b949e", "premium": "#0099ff", "pro": "#00d4aa"}.get(plan, "#8b949e")
@@ -320,6 +308,13 @@ with st.sidebar:
         limit_text = f"◈ {remaining}/{MAX_REQUESTS_PER_SESSION} requests left"
         
     st.markdown(f'<div class="rate-limit-badge">{limit_text}</div>', unsafe_allow_html=True)
+    
+    # New Back Button for Admins
+    if is_admin:
+        st.divider()
+        if st.button("← Back to Portal", use_container_width=True):
+            st.switch_page("pages/4_Admin_Portal.py")
+            
     st.divider()
     st.markdown("""
     <div style="background:#1c2333; border:1px solid #30363d; border-radius:8px;
@@ -407,25 +402,6 @@ try:
     # ── Dataset Overview ──────────────────────────────────────
     st.markdown('<div class="section-label">Dataset Overview</div>', unsafe_allow_html=True)
     render_metrics(current_df)
-
-    # ── Admin Dashboard ──────────────────────────────────────
-    if is_admin:
-        st.markdown("---")
-        st.markdown('<div class="section-label">👑 Admin Control Panel</div>', unsafe_allow_html=True)
-        
-        stats = get_admin_stats()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Users", stats.get('total_users', 0))
-        c2.metric("Pro Users", stats.get('plans', {}).get('pro', 0))
-        c3.metric("Trial Users", stats.get('plans', {}).get('free_trial', 0))
-        
-        with st.expander("Manage User Trials"):
-            target_email = st.text_input("Enter email to block trial access:")
-            if st.button("Block Access"):
-                if block_user_trial(target_email):
-                    st.success(f"Trial for {target_email} expired.")
-                else:
-                    st.error("Failed to update user status.")
 
     # Column pills
     pills_html = "".join([f'<span class="col-pill">{sanitize_col_name(c)}</span>' for c in current_df.columns])
