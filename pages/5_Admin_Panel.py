@@ -1,76 +1,148 @@
-"""pages/5_Admin_Panel.py — Admin features and analytics."""
+"""
+pages/5_Admin_Panel.py — Nexus Excel AI · Admin Dashboard
+Dedicated dashboard for system analytics, user access control, and database management.
+"""
+
 import streamlit as st
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from styles import GLOBAL_CSS, APP_CSS
-from database import get_admin_stats, block_user_trial
 
-st.set_page_config(page_title="Admin Panel", page_icon="👑", layout="wide", initial_sidebar_state="collapsed")
+# Ensure the app can find your root modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from styles import GLOBAL_CSS, APP_CSS
+from database import get_admin_stats, block_user_trial, DB_PATH
+
+# ── Page config ───────────────────────────────────────────────
+st.set_page_config(
+    page_title="Nexus Excel AI — Admin Panel",
+    page_icon="👑",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
-# Security check
+# ============================================================
+# ACCESS CONTROL
+# ============================================================
 if not st.session_state.get("is_admin"):
     st.switch_page("Home.py")
 
+# ============================================================
+# HERO SECTION
+# ============================================================
 st.markdown("""
 <div class="hero-zone fade-up">
     <div class="hero-title">👑 Admin Control Panel</div>
-    <div class="hero-sub">Manage users, view system analytics, and control access.</div>
+    <div class="hero-sub">Manage users, view system analytics, and control platform access.</div>
 </div>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# SYSTEM ANALYTICS
+# ============================================================
 st.markdown('<div class="section-label">System Analytics</div>', unsafe_allow_html=True)
-stats = get_admin_stats()
 
-# Using your exact CSS classes for metrics so colors/fonts match perfectly
+# Fetch stats from the database
+stats = get_admin_stats()
+total_users = stats.get('total_users', 0)
+pro_users = stats.get('plans', {}).get('pro', 0)
+trial_users = stats.get('plans', {}).get('free_trial', 0)
+
+# Render identical metric cards to the main app
 st.markdown(f"""
 <div class="metric-row">
     <div class="metric-card">
         <div class="label">Total Users</div>
-        <div class="value">{stats.get('total_users', 0)}</div>
+        <div class="value">{total_users:,}</div>
         <div class="sub">Registered accounts</div>
     </div>
     <div class="metric-card">
         <div class="label">Pro Plan Users</div>
-        <div class="value">{stats.get('plans', {}).get('pro', 0)}</div>
+        <div class="value">{pro_users:,}</div>
         <div class="sub">Paid subscriptions</div>
     </div>
     <div class="metric-card">
         <div class="label">Active Trials</div>
-        <div class="value">{stats.get('plans', {}).get('free_trial', 0)}</div>
+        <div class="value">{trial_users:,}</div>
         <div class="sub">On 7-day access</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+# ============================================================
+# ACCESS CONTROL (BLOCK USER)
+# ============================================================
 st.markdown('<div class="section-label">Access Control</div>', unsafe_allow_html=True)
 
 with st.container():
+    # Information banner matching the app's native card styling
     st.markdown("""
-    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-        <strong style="color: var(--text-primary); font-family: var(--font-body);">Block User Trial</strong><br>
-        <span style="color: var(--text-muted); font-size: 0.85rem;">Instantly expire a user's free trial. They will be locked out until they purchase a plan.</span>
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+        <strong style="color: var(--text-primary); font-family: var(--font-body); font-size: 1.1rem;">Block User Trial</strong><br>
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Instantly expire a user's free trial. They will be locked out of the dashboard until they purchase a paid plan.</span>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<br>", unsafe_allow_html=True)
     col_input, col_btn = st.columns([3, 1])
     
     with col_input:
-        target_email = st.text_input("User Email Address", placeholder="user@domain.com", label_visibility="collapsed")
+        target_email = st.text_input(
+            "User Email Address", 
+            placeholder="e.g., user@domain.com", 
+            label_visibility="collapsed"
+        )
     
     with col_btn:
-        if st.button("🚫 Block Access", use_container_width=True):
-            if target_email:
-                if block_user_trial(target_email):
-                    st.success(f"✅ Access blocked for {target_email}.")
+        st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
+        block_btn = st.button("🚫 Block Access", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        if block_btn:
+            clean_email = target_email.strip().lower()
+            if clean_email:
+                if block_user_trial(clean_email):
+                    st.success(f"✅ Trial successfully expired for {clean_email}.")
                 else:
-                    st.error("Failed to block user. Check database connection.")
+                    st.error("❌ Failed to block user. Check database connection.")
             else:
-                st.warning("Please enter an email address.")
+                st.warning("⚠️ Please enter a valid email address.")
 
+# ============================================================
+# DATABASE MANAGEMENT
+# ============================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown('<div class="section-label">Database Management</div>', unsafe_allow_html=True)
+
+with st.container():
+    st.markdown("""
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Download a secure snapshot of the SQLite database to your local machine for advanced querying and backups.</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_dl, _ = st.columns([1, 2])
+    with col_dl:
+        try:
+            with open(DB_PATH, "rb") as f:
+                st.download_button(
+                    label="📥 Download nexus.db",
+                    data=f,
+                    file_name="nexus.db",
+                    mime="application/x-sqlite3",
+                    use_container_width=True
+                )
+        except FileNotFoundError:
+            st.error("Database file not found. It may not have been created yet.")
+
+# ============================================================
+# NAVIGATION
+# ============================================================
 st.divider()
-if st.button("← Back to Portal"):
-    st.switch_page("pages/4_Admin_Portal.py")
+
+col_back, _ = st.columns([1, 4])
+with col_back:
+    if st.button("← Back to Portal", use_container_width=True):
+        st.switch_page("pages/4_Admin_Portal.py")
