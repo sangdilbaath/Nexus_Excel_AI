@@ -213,7 +213,8 @@ with col_card:
                     activate_plan(clean_email, "pro")
                 except:
                     pass
-              st.success("✅ Master Key Accepted! Booting Admin Portal...")
+                
+                st.success("✅ Master Key Accepted! Booting Admin Portal...")
                 time.sleep(1.2)
                 st.switch_page("pages/4_Admin_Portal.py")
             else:
