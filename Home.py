@@ -1,13 +1,13 @@
 """
 Home.py — Nexus Excel AI · Landing Page
-Entry point: email capture → redirect to Pricing or App.
+Entry point: email/password capture → redirect to Pricing or App.
 """
 
 import streamlit as st
 import sys, os, time, re
 sys.path.insert(0, os.path.dirname(__file__))
 
-from database import init_db, upsert_user, activate_plan, is_trial_expired
+from database import init_db, verify_or_create_user, activate_plan, is_trial_expired, upsert_user
 from styles import GLOBAL_CSS
 
 # ── Page config ───────────────────────────────────────────────
@@ -20,8 +20,6 @@ st.set_page_config(
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
-
-
 /* Landing-specific */
 .hero-landing {
     text-align: center;
@@ -146,7 +144,7 @@ with col_card:
         st.markdown("""
         <div class="email-card">
             <div class="email-card-title">Get started or Log in</div>
-            <div class="email-card-sub">Enter your email to unlock your plan or resume your session.</div>
+            <div class="email-card-sub">Enter your email and password to access your account.</div>
             <br>
         """, unsafe_allow_html=True)
 
@@ -156,18 +154,31 @@ with col_card:
             label_visibility="collapsed",
             key="user_email"
         )
+        
+        password_input = st.text_input(
+            "password_field",
+            placeholder="Password",
+            type="password",
+            label_visibility="collapsed",
+            key="user_password"
+        )
+        
+        st.markdown('<br>', unsafe_allow_html=True)
         st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
         go_btn = st.button("Continue  →", use_container_width=True)
         st.markdown('</div></div>', unsafe_allow_html=True)
 
         if go_btn:
             raw = email_input.strip().lower()
+            password = password_input
             
             # 1. Strict Regex Pattern for real email formats
             email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
             
             if not re.match(email_pattern, raw):
                 st.error("⚠️ Please enter a valid email address (e.g., name@company.com).")
+            elif not password:
+                st.error("⚠️ Please enter a password.")
             else:
                 # 2. Blocklist for obvious fake/test domains
                 domain = raw.split('@')[-1]
@@ -176,16 +187,21 @@ with col_card:
                 if domain in blocked_domains:
                     st.error("⚠️ Please use a real personal or work email address.")
                 else:
-                    # 3. If it passes, proceed to database
-                    user = upsert_user(raw)
-                    st.session_state["email"] = raw
-                    st.session_state["user"]  = user
+                    # 3. Secure Verification
+                    user = verify_or_create_user(raw, password)
+                    
+                    if user is False:
+                        st.error("❌ Incorrect password. Please try again.")
+                    else:
+                        st.session_state["email"] = raw
+                        st.session_state["user"]  = user
 
-                    if user.get("has_payment_on_file"):
-                        if not is_trial_expired(user):
-                            st.switch_page("pages/3_App.py")
-
-                    st.switch_page("pages/1_Pricing.py")
+                        # Routing Logic
+                        if user.get("has_payment_on_file") == 1:
+                            if not is_trial_expired(user):
+                                st.switch_page("pages/3_App.py")
+                        
+                        st.switch_page("pages/1_Pricing.py")
 
     with tab_admin:
         st.markdown("""
@@ -196,7 +212,7 @@ with col_card:
         """, unsafe_allow_html=True)
         
         admin_email = st.text_input("Admin Email", placeholder="admin@domain.com", key="admin_email")
-        admin_pass = st.text_input("Password", type="password", key="admin_pass")
+        admin_pass = st.text_input("Admin Password", type="password", key="admin_pass")
 
         st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
         admin_btn = st.button("Unlock Dashboard  →", use_container_width=True)
@@ -219,7 +235,6 @@ with col_card:
                 st.session_state["user"] = master_user
                 st.session_state["is_admin"] = True
                 
-                # Quietly update DB in the background
                 try:
                     upsert_user(clean_email)
                     activate_plan(clean_email, "pro")
