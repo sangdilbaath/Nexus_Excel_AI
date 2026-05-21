@@ -1,6 +1,6 @@
 """
 pages/3_App.py — Nexus Excel AI · Main AI Dashboard
-Access-controlled, feature-gated AI data analyst powered by Gemini 2.5.
+Access-controlled AI data analyst powered by Nexus.
 """
 
 import streamlit as st
@@ -33,7 +33,6 @@ init_db()
 is_admin = st.session_state.get("is_admin", False)
 
 if is_admin:
-    # Completely bypass all database and payment checks for the Master Key
     user = st.session_state.get("user", {
         "email": "sangdilsingh62@gmail.com",
         "plan_type": "pro",
@@ -45,11 +44,9 @@ if is_admin:
 else:
     user = st.session_state.get("user")
     
-    # No user at all → back to home
     if not user:
         st.switch_page("Home.py")
 
-    # Refresh user from DB (in case page was reloaded)
     from database import get_user
     email = st.session_state.get("email", user.get("email", ""))
     if email:
@@ -58,9 +55,8 @@ else:
             user = fresh
             st.session_state["user"] = fresh
 
-    # Not paid → billing
     if not user.get("has_payment_on_file"):
-        st.switch_page("pages/2_Billing.py")
+        st.switch_page("pages/1_Start_Trial.py")
 
     plan       = user.get("plan_type", "none")
     trial_exp  = is_trial_expired(user)
@@ -74,28 +70,20 @@ if trial_exp:
             Your Free Trial Has Expired
         </h2>
         <p style="color:#8b949e; font-size:1rem; max-width:460px; margin:0 auto 2rem auto;">
-            Your 7-day trial ended. Upgrade to a paid plan to continue using Nexus Excel AI.
+            Your trial has expired. Please contact support to continue using Nexus.
         </p>
     </div>
     """, unsafe_allow_html=True)
-    _, col_btn, _ = st.columns([2, 1, 2])
-    with col_btn:
-        st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
-        if st.button("🚀 Upgrade My Plan", use_container_width=True):
-            st.session_state.pop("plan_selected", None)
-            st.switch_page("pages/1_Pricing.py")
-        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# ── Feature flags from plan ────────────────────────────────────
-VOICE_ENABLED  = plan in ("free_trial", "premium", "pro") or is_admin
-CHART_ENABLED  = plan in ("free_trial", "pro") or is_admin
+# Features are universally unlocked 
+VOICE_ENABLED = True
+CHART_ENABLED = True
 
 # ============================================================
 # CONSTANTS
 # ============================================================
 MAX_FILE_SIZE_MB         = 10
-# Unlimited requests for admin
 MAX_REQUESTS_PER_SESSION = 99999 if is_admin else 50
 AI_TIMEOUT_SECONDS       = 30
 PYTHON_KEYWORDS          = {'import', 'def', 'df', 'plt', 'pd', 'for', 'if', 'print', 'return', '=', 'fig', 'ax'}
@@ -207,7 +195,7 @@ def load_file(uploaded_file) -> pd.DataFrame:
             pass
     return df
 
-def call_gemini_with_timeout(client, prompt: str, timeout: int = AI_TIMEOUT_SECONDS) -> str:
+def call_ai_with_timeout(client, prompt: str, timeout: int = AI_TIMEOUT_SECONDS) -> str:
     def _call():
         return client.models.generate_content(
             model="gemini-2.5-flash",
@@ -218,7 +206,7 @@ def call_gemini_with_timeout(client, prompt: str, timeout: int = AI_TIMEOUT_SECO
         try:
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError:
-            raise TimeoutError(f"Gemini API did not respond within {timeout}s.")
+            raise TimeoutError(f"Nexus AI did not respond within {timeout}s.")
 
 def trim_memory():
     if len(st.session_state.command_history) > 50:
@@ -240,7 +228,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Master Key Badge
     if is_admin:
         st.markdown("""
         <div style="background:#f8514915; border:1px solid #f8514950; border-radius:8px;
@@ -251,7 +238,6 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    # Plan badge
     plan_color = {"free_trial": "#e3b341", "basic": "#8b949e", "premium": "#0099ff", "pro": "#00d4aa"}.get(plan, "#8b949e")
     trial_info = f" · {trial_days}d left" if trial_days is not None else ""
     st.markdown(f"""
@@ -263,6 +249,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-label">API Configuration</div>', unsafe_allow_html=True)
+    # The exact phrase required by the user instructions
     api_key = st.text_input("Gemini API Key", type="password", placeholder="AIza…")
 
     st.markdown('<div class="section-label">Session Controls</div>', unsafe_allow_html=True)
@@ -279,11 +266,6 @@ with st.sidebar:
             )
         st.rerun()
 
-    if st.button("🔄 Change Plan", use_container_width=True):
-        st.session_state.pop("plan_selected", None)
-        st.switch_page("pages/1_Pricing.py")
-
-    # Audit trail
     if st.session_state.command_history:
         st.markdown('<div class="section-label">Audit Trail</div>', unsafe_allow_html=True)
         with st.expander(f"📝 {len(st.session_state.command_history)} command(s)", expanded=False):
@@ -301,15 +283,9 @@ with st.sidebar:
                 """, unsafe_allow_html=True)
 
     remaining = MAX_REQUESTS_PER_SESSION - st.session_state.request_count
-    
-    if is_admin:
-        limit_text = "◈ Unlimited requests"
-    else:
-        limit_text = f"◈ {remaining}/{MAX_REQUESTS_PER_SESSION} requests left"
-        
+    limit_text = "◈ Unlimited requests" if is_admin else f"◈ {remaining}/{MAX_REQUESTS_PER_SESSION} requests left"
     st.markdown(f'<div class="rate-limit-badge">{limit_text}</div>', unsafe_allow_html=True)
     
-    # New Back Button for Admins
     if is_admin:
         st.divider()
         if st.button("← Back to Portal", use_container_width=True):
@@ -320,7 +296,7 @@ with st.sidebar:
     <div style="background:#1c2333; border:1px solid #30363d; border-radius:8px;
                 padding:0.7rem 1rem; text-align:center;">
         <div style="font-size:0.72rem; color:#8b949e; text-transform:uppercase; letter-spacing:1px;">
-            Nexus v3.2 · 2026 Pro
+            Nexus v4.0 · Pro
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -342,7 +318,7 @@ if not api_key:
         <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔑</div>
         <div style="font-family:'Space Mono',monospace; color:#e6edf3; font-size:1rem;">API Key Required</div>
         <div style="color:#8b949e; font-size:0.875rem; margin-top:0.4rem;">
-            Enter your Gemini API Key in the sidebar to activate the engine.
+            Enter your API Key in the sidebar to activate the Nexus engine.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -355,7 +331,6 @@ try:
     from google import genai
     client = genai.Client(api_key=api_key)
 
-    # ── File Upload ──────────────────────────────────────────
     st.markdown('<div class="section-label">Data Source</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Upload spreadsheet",
@@ -377,11 +352,7 @@ try:
         st.stop()
 
     if uploaded_file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
-        st.error(
-            f"❌ File too large ({round(uploaded_file.size/1024/1024, 1)} MB). "
-            f"Maximum allowed is {MAX_FILE_SIZE_MB} MB.",
-            icon="🚫",
-        )
+        st.error(f"❌ File too large. Maximum allowed is {MAX_FILE_SIZE_MB} MB.", icon="🚫")
         st.stop()
 
     if uploaded_file.name != st.session_state.last_filename:
@@ -393,17 +364,11 @@ try:
             st.session_state.command_history = []
             st.session_state.request_count   = 0
 
-    current_df = (
-        st.session_state.updated_df
-        if st.session_state.updated_df is not None
-        else st.session_state.df
-    )
+    current_df = st.session_state.updated_df if st.session_state.updated_df is not None else st.session_state.df
 
-    # ── Dataset Overview ──────────────────────────────────────
     st.markdown('<div class="section-label">Dataset Overview</div>', unsafe_allow_html=True)
     render_metrics(current_df)
 
-    # Column pills
     pills_html = "".join([f'<span class="col-pill">{sanitize_col_name(c)}</span>' for c in current_df.columns])
     wrap_cls   = "col-pills-wrap" + (" expanded" if st.session_state.show_all_cols else "")
     st.markdown(f'<div class="{wrap_cls}">{pills_html}</div>', unsafe_allow_html=True)
@@ -411,7 +376,6 @@ try:
         st.session_state.show_all_cols = not st.session_state.show_all_cols
         st.rerun()
 
-    # Data preview
     col_title, col_toggle = st.columns([5, 1])
     with col_title:
         st.markdown('<div class="section-label">Data Preview</div>', unsafe_allow_html=True)
@@ -424,45 +388,27 @@ try:
     preview_df = current_df if st.session_state.show_all_data else current_df.head(5)
     st.dataframe(preview_df, use_container_width=True, height=220)
 
-    # ── Command Interface ──────────────────────────────────────
     st.markdown('<div class="section-label">Command Interface</div>', unsafe_allow_html=True)
-
-    # Feature-gate banners
-    if not VOICE_ENABLED:
-        st.markdown("""
-        <div class="gate-banner">
-            🔒 <strong>Voice Input</strong> — Upgrade to Premium or Pro to unlock microphone commands.
-        </div>
-        """, unsafe_allow_html=True)
-    if not CHART_ENABLED:
-        st.markdown("""
-        <div class="gate-banner">
-            🔒 <strong>Charts & Visualisations</strong> — Upgrade to Pro or Free Trial to unlock matplotlib charts.
-        </div>
-        """, unsafe_allow_html=True)
 
     col_mic, col_txt = st.columns([1, 6])
     with col_mic:
-        if VOICE_ENABLED:
-            try:
-                from streamlit_mic_recorder import speech_to_text
-                text_from_voice = speech_to_text(
-                    language='en',
-                    start_prompt="🎙️",
-                    stop_prompt="🛑 Stop",
-                    just_once=True,
-                    key='nexus_stt',
-                )
-                if text_from_voice:
-                    st.session_state.query_text = text_from_voice
-                    st.session_state.is_recording = False
-                if st.session_state.get("is_recording"):
-                    st.markdown('<div class="recording-indicator"><span class="pulse-dot"></span> Listening…</div>',
-                                unsafe_allow_html=True)
-            except ImportError:
-                st.button("🎙️", disabled=True, help="Install streamlit-mic-recorder")
-        else:
-            st.button("🔒", disabled=True, help="Upgrade to Premium/Pro for voice input")
+        try:
+            from streamlit_mic_recorder import speech_to_text
+            text_from_voice = speech_to_text(
+                language='en',
+                start_prompt="🎙️",
+                stop_prompt="🛑 Stop",
+                just_once=True,
+                key='nexus_stt',
+            )
+            if text_from_voice:
+                st.session_state.query_text = text_from_voice
+                st.session_state.is_recording = False
+            if st.session_state.get("is_recording"):
+                st.markdown('<div class="recording-indicator"><span class="pulse-dot"></span> Listening…</div>',
+                            unsafe_allow_html=True)
+        except ImportError:
+            st.button("🎙️", disabled=True, help="Install streamlit-mic-recorder")
 
     with col_txt:
         final_query = st.text_area(
@@ -473,7 +419,6 @@ try:
             height=80,
         )
 
-    # Rate limit
     if st.session_state.request_count >= MAX_REQUESTS_PER_SESSION and not is_admin:
         st.warning(f"⚠️ Session limit of {MAX_REQUESTS_PER_SESSION} requests reached. Reset the session to continue.")
     else:
@@ -487,22 +432,13 @@ try:
             df_summary  = get_df_summary(current_df)
             rows_before = len(current_df)
 
-            # ── Build chart rule based on plan ───────────────
-            if CHART_ENABLED:
-                chart_rule = (
-                    "3. CHART TASKS: Never overwrite 'df'. Use matplotlib. End EVERY chart with:\n"
-                    "   plt.tight_layout()\n"
-                    "   plt.savefig(buf, format='png', bbox_inches='tight', dpi=150, facecolor='#1c2333')\n"
-                    "   plt.close()\n"
-                    "4. CHART STYLE: Dark theme via plt.style.use('dark_background'). "
-                    "Use accent '#00d4aa' for main data series."
-                )
-            else:
-                chart_rule = (
-                    "3. DO NOT generate any code using matplotlib, charts, plt, or any visualisation library. "
-                    "The user is NOT authorised for charts on their current plan. "
-                    "Only return data manipulation code."
-                )
+            chart_rule = (
+                "3. CHART TASKS: Never overwrite 'df'. Use matplotlib. End EVERY chart with:\n"
+                "   plt.tight_layout()\n"
+                "   plt.savefig(buf, format='png', bbox_inches='tight', dpi=150, facecolor='#1c2333')\n"
+                "   plt.close()\n"
+                "4. CHART STYLE: Dark theme via plt.style.use('dark_background'). Use accent '#00d4aa' for main data series."
+            )
 
             prompt = f"""You are a senior Python Data Analyst. The user has a Pandas DataFrame named 'df'.
 
@@ -528,29 +464,21 @@ STRICT RULES:
             with st.status("⚡ Nexus Engine Running…", expanded=True) as status:
                 for attempt in range(2):
                     try:
-                        st.write("📡 Connecting to Gemini…" if attempt == 0 else "🔁 Retrying with error context…")
+                        st.write("📡 Connecting to Nexus AI Engine…" if attempt == 0 else "🔁 Retrying with error context…")
 
                         retry_prompt = prompt if attempt == 0 else (
                             prompt + f"\n\nYour previous attempt failed with:\n`{last_error}`\nFix the code."
                         )
 
-                        raw_response = call_gemini_with_timeout(client, retry_prompt)
+                        raw_response = call_ai_with_timeout(client, retry_prompt)
                         st.write("🧬 Parsing generated code…")
                         clean_code = clean_ai_code(raw_response)
 
                         if not is_likely_python(clean_code):
-                            raise ValueError(
-                                "AI returned an explanation instead of code. "
-                                f"Preview: {clean_code[:120]}"
-                            )
+                            raise ValueError(f"AI returned an explanation instead of code. Preview: {clean_code[:120]}")
 
                         buf       = io.BytesIO()
-                        local_ctx = {
-                            'df':  current_df.copy(),
-                            'plt': plt,
-                            'pd':  pd,
-                            'buf': buf,
-                        }
+                        local_ctx = {'df': current_df.copy(), 'plt': plt, 'pd': pd, 'buf': buf}
 
                         plt.style.use('dark_background')
                         st.write("🚀 Executing analysis…")
@@ -560,7 +488,7 @@ STRICT RULES:
                         if isinstance(result_df, pd.DataFrame):
                             st.session_state.updated_df = result_df
 
-                        if CHART_ENABLED and local_ctx['buf'].tell() > 0:
+                        if local_ctx['buf'].tell() > 0:
                             local_ctx['buf'].seek(0)
                             st.session_state.chart_gallery.append({
                                 "label":     final_query[:60],
@@ -578,10 +506,7 @@ STRICT RULES:
                             st.error(f"**Error:** `{last_error}`")
                             st.code(clean_code or "No code generated.", language="python")
 
-            rows_after = (
-                len(st.session_state.updated_df)
-                if st.session_state.updated_df is not None else rows_before
-            )
+            rows_after = len(st.session_state.updated_df) if st.session_state.updated_df is not None else rows_before
 
             st.session_state.command_history.append({
                 "cmd":         final_query,
@@ -601,8 +526,7 @@ STRICT RULES:
                 time.sleep(0.4)
                 st.rerun()
 
-    # ── Results Panel ──────────────────────────────────────────
-    has_chart = bool(st.session_state.chart_gallery) and CHART_ENABLED
+    has_chart = bool(st.session_state.chart_gallery)
     has_table = st.session_state.updated_df is not None
 
     if has_table or has_chart:
@@ -629,7 +553,6 @@ STRICT RULES:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Chart gallery
         if has_chart and len(st.session_state.chart_gallery) > 1:
             st.markdown('<div class="section-label">Chart Gallery</div>', unsafe_allow_html=True)
             for entry in reversed(st.session_state.chart_gallery[:-1]):
@@ -638,7 +561,6 @@ STRICT RULES:
                 st.image(entry["img_bytes"], use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        # Downloads
         if has_table:
             st.markdown('<div class="section-label">Export</div>', unsafe_allow_html=True)
             output = io.BytesIO()
@@ -664,4 +586,4 @@ STRICT RULES:
 
 except Exception as e:
     st.error(f"**Initialization Error:** {e}")
-    st.caption("Check your Gemini API Key in the sidebar.")
+    st.caption("Check your API Key in the sidebar.")
