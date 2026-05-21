@@ -1,6 +1,6 @@
 """
 Home.py — Nexus Excel AI · Landing Page
-Entry point: email/password capture → redirect to Pricing or App.
+Entry point: email/password capture → redirect to Trial or App.
 """
 
 import streamlit as st
@@ -118,19 +118,18 @@ st.markdown("""
 # ── Init DB ───────────────────────────────────────────────────
 init_db()
 
-# ── If already have email + paid → go straight to app ─────────
+# ── If already have email + plan → go straight to app ─────────
 if st.session_state.get("user") and st.session_state["user"].get("has_payment_on_file"):
     st.switch_page("pages/3_App.py")
 
 # ── Hero Section ──────────────────────────────────────────────
 st.markdown("""
 <div class="hero-landing">
-    <div class="hero-badge">◈ Powered by Gemini 2.5</div>
+    <div class="hero-badge">◈ Powered By Nexus</div>
     <h1 class="hero-h1">Your Spreadsheets,<br><span>Supercharged by AI.</span></h1>
     <p class="hero-p">
         Upload any CSV or Excel file and ask questions in plain English —
-        or by voice. Nexus generates, runs, and explains Python analysis
-        instantly.
+        or by voice. Nexus writes and runs the Python analysis instantly.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -172,7 +171,6 @@ with col_card:
             raw = email_input.strip().lower()
             password = password_input
             
-            # 1. Strict Regex Pattern for real email formats
             email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
             
             if not re.match(email_pattern, raw):
@@ -180,14 +178,12 @@ with col_card:
             elif not password:
                 st.error("⚠️ Please enter a password.")
             else:
-                # 2. Blocklist for obvious fake/test domains
                 domain = raw.split('@')[-1]
                 blocked_domains = ["test.com", "example.com", "fake.com", "mailinator.com", "tempmail.com"]
                 
                 if domain in blocked_domains:
                     st.error("⚠️ Please use a real personal or work email address.")
                 else:
-                    # 3. Secure Verification
                     user = verify_or_create_user(raw, password)
                     
                     if user is False:
@@ -196,12 +192,11 @@ with col_card:
                         st.session_state["email"] = raw
                         st.session_state["user"]  = user
 
-                        # Routing Logic
                         if user.get("has_payment_on_file") == 1:
                             if not is_trial_expired(user):
                                 st.switch_page("pages/3_App.py")
                         
-                        st.switch_page("pages/1_Pricing.py")
+                        st.switch_page("pages/1_Start_Trial.py")
 
     with tab_admin:
         st.markdown("""
@@ -222,7 +217,6 @@ with col_card:
             clean_email = admin_email.strip().lower()
             if clean_email == "sangdilsingh62@gmail.com" and admin_pass == "1322":
                 
-                # Force a perfect user dictionary so the Dashboard never rejects the admin
                 master_user = {
                     "email": clean_email,
                     "plan_type": "pro",
@@ -253,7 +247,7 @@ st.markdown("""
     <div class="feature-item">
         <div class="feature-icon">🧠</div>
         <div class="feature-title">AI Data Analyst</div>
-        <div class="feature-desc">Ask anything. Gemini 2.5 writes and runs the Python for you.</div>
+        <div class="feature-desc">Ask anything. Nexus writes and runs the Python for you.</div>
     </div>
     <div class="feature-item">
         <div class="feature-icon">🎙️</div>
