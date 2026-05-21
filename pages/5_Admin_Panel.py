@@ -10,7 +10,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from styles import GLOBAL_CSS, APP_CSS
-from database import get_admin_stats, block_user_trial, DB_PATH
+from database import get_admin_stats, block_user_trial, admin_create_user, DB_PATH
 
 # ── Page config ───────────────────────────────────────────────
 st.set_page_config(
@@ -73,12 +73,50 @@ st.markdown(f"""
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================================================
+# MANUAL USER REGISTRATION
+# ============================================================
+st.markdown('<div class="section-label">Register New User</div>', unsafe_allow_html=True)
+
+with st.container():
+    st.markdown("""
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+        <strong style="color: var(--text-primary); font-family: var(--font-body); font-size: 1.1rem;">Manual User Registration</strong><br>
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Create a new user account with an active paid plan. This bypasses the checkout flow entirely.</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_em, col_pw, col_pl = st.columns(3)
+    
+    with col_em:
+        new_email = st.text_input("User Email Address", placeholder="client@domain.com")
+    with col_pw:
+        new_password = st.text_input("Password", type="password")
+    with col_pl:
+        new_plan = st.selectbox("Assign Plan", ["Basic", "Premium", "Pro"])
+        
+    st.markdown('<div class="cta-btn" style="max-width: 200px; margin-top: 0.5rem;">', unsafe_allow_html=True)
+    register_btn = st.button("➕ Create Account", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    if register_btn:
+        if new_email and new_password:
+            clean_email = new_email.strip().lower()
+            plan_key = new_plan.lower()
+            if admin_create_user(clean_email, new_password, plan_key):
+                st.success(f"✅ Account successfully created for **{clean_email}** on the **{new_plan}** plan.")
+            else:
+                st.error("❌ Failed to create user. Check database connection.")
+        else:
+            st.warning("⚠️ Both Email and Password are required.")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ============================================================
 # ACCESS CONTROL (BLOCK USER)
 # ============================================================
 st.markdown('<div class="section-label">Access Control</div>', unsafe_allow_html=True)
 
 with st.container():
-    # Information banner matching the app's native card styling
     st.markdown("""
     <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
         <strong style="color: var(--text-primary); font-family: var(--font-body); font-size: 1.1rem;">Block User Trial</strong><br>
@@ -92,7 +130,8 @@ with st.container():
         target_email = st.text_input(
             "User Email Address", 
             placeholder="e.g., user@domain.com", 
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="block_email"
         )
     
     with col_btn:
