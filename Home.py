@@ -8,7 +8,7 @@ import sys, os, time, re
 sys.path.insert(0, os.path.dirname(__file__))
 
 # ── Updated Imports (Fixed for Supabase / Expiry Dates) ───────
-from database import init_db, verify_or_create_user, activate_plan, is_account_expired, upsert_user
+from database import  verify_or_create_user, activate_plan, is_account_expired, upsert_user
 from styles import GLOBAL_CSS
 
 # ── Page config ───────────────────────────────────────────────
@@ -116,8 +116,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Init DB ───────────────────────────────────────────────────
-init_db()
+
 
 # ── If already logged in + paid + active → go straight to app ─
 if st.session_state.get("user") and st.session_state["user"].get("has_payment_on_file"):
