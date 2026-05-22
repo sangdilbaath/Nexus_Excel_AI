@@ -1,12 +1,13 @@
 """
 Home.py — Nexus Excel AI · Landing Page
-Entry point: email/password capture → redirect to Trial or App.
+Entry point: email & password capture → redirect to Trial or App.
 """
 
 import streamlit as st
 import sys, os, time, re
 sys.path.insert(0, os.path.dirname(__file__))
 
+# ── Updated Imports (Fixed for Supabase / Expiry Dates) ───────
 from database import init_db, verify_or_create_user, activate_plan, is_account_expired, upsert_user
 from styles import GLOBAL_CSS
 
@@ -118,18 +119,20 @@ st.markdown("""
 # ── Init DB ───────────────────────────────────────────────────
 init_db()
 
-# ── If already have email + plan → go straight to app ─────────
+# ── If already logged in + paid + active → go straight to app ─
 if st.session_state.get("user") and st.session_state["user"].get("has_payment_on_file"):
-    st.switch_page("pages/3_App.py")
+    if not is_account_expired(st.session_state["user"]):
+        st.switch_page("pages/3_App.py")
 
-# ── Hero Section ──────────────────────────────────────────────
+# ── Hero Section (Gemini text removed) ────────────────────────
 st.markdown("""
 <div class="hero-landing">
     <div class="hero-badge">◈ Powered By Nexus</div>
     <h1 class="hero-h1">Your Spreadsheets,<br><span>Supercharged by AI.</span></h1>
     <p class="hero-p">
         Upload any CSV or Excel file and ask questions in plain English —
-        or by voice. Nexus writes and runs the Python analysis instantly.
+        or by voice. Nexus writes, runs, and explains Python analysis
+        instantly.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -148,54 +151,57 @@ with col_card:
         """, unsafe_allow_html=True)
 
         email_input = st.text_input(
-            "email_field",
+            "Email",
             placeholder="you@company.com",
-            label_visibility="collapsed",
             key="user_email"
         )
-        
         password_input = st.text_input(
-            "password_field",
-            placeholder="Password",
+            "Password",
             type="password",
-            label_visibility="collapsed",
+            placeholder="Enter your password",
             key="user_password"
         )
-        
-        st.markdown('<br>', unsafe_allow_html=True)
+
         st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
         go_btn = st.button("Continue  →", use_container_width=True)
         st.markdown('</div></div>', unsafe_allow_html=True)
 
         if go_btn:
-            raw = email_input.strip().lower()
-            password = password_input
+            raw_email = email_input.strip().lower()
+            raw_pass = password_input.strip()
             
+            # 1. Validation
             email_pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
             
-            if not re.match(email_pattern, raw):
-                st.error("⚠️ Please enter a valid email address (e.g., name@company.com).")
-            elif not password:
+            if not re.match(email_pattern, raw_email):
+                st.error("⚠️ Please enter a valid email address.")
+            elif not raw_pass:
                 st.error("⚠️ Please enter a password.")
             else:
-                domain = raw.split('@')[-1]
+                domain = raw_email.split('@')[-1]
                 blocked_domains = ["test.com", "example.com", "fake.com", "mailinator.com", "tempmail.com"]
                 
                 if domain in blocked_domains:
                     st.error("⚠️ Please use a real personal or work email address.")
                 else:
-                    user = verify_or_create_user(raw, password)
-                    
+                    # 2. Check Database via Supabase
+                    with st.spinner("Authenticating..."):
+                        user = verify_or_create_user(raw_email, raw_pass)
+                        time.sleep(0.5)
+
                     if user is False:
-                        st.error("❌ Incorrect password. Please try again.")
+                        st.error("❌ Incorrect password for this email.")
                     else:
-                        st.session_state["email"] = raw
+                        # 3. Successful Login / Account Creation
+                        st.session_state["email"] = raw_email
                         st.session_state["user"]  = user
 
-                        if user.get("has_payment_on_file") == 1:
-                           if not is_account_expired(user):
-                              st.switch_page("pages/3_App.py")
-                        
+                        # If they are a returning active user, send to App
+                        if user.get("has_payment_on_file"):
+                            if not is_account_expired(user):
+                                st.switch_page("pages/3_App.py")
+
+                        # If they are brand new (or expired), send them to start a trial
                         st.switch_page("pages/1_Start_Trial.py")
 
     with tab_admin:
@@ -207,7 +213,7 @@ with col_card:
         """, unsafe_allow_html=True)
         
         admin_email = st.text_input("Admin Email", placeholder="admin@domain.com", key="admin_email")
-        admin_pass = st.text_input("Admin Password", type="password", key="admin_pass")
+        admin_pass = st.text_input("Password", type="password", key="admin_pass")
 
         st.markdown('<div class="cta-btn">', unsafe_allow_html=True)
         admin_btn = st.button("Unlock Dashboard  →", use_container_width=True)
@@ -217,23 +223,17 @@ with col_card:
             clean_email = admin_email.strip().lower()
             if clean_email == "sangdilsingh62@gmail.com" and admin_pass == "1322":
                 
+                # Master User Dictionary
                 master_user = {
                     "email": clean_email,
                     "plan_type": "pro",
                     "has_payment_on_file": 1,
-                    "trial_start_date": None,
-                    "trial_end_date": None
+                    "expiry_date": None
                 }
                 
                 st.session_state["email"] = clean_email
                 st.session_state["user"] = master_user
                 st.session_state["is_admin"] = True
-                
-                try:
-                    upsert_user(clean_email)
-                    activate_plan(clean_email, "pro")
-                except:
-                    pass
                 
                 st.success("✅ Master Key Accepted! Booting Admin Portal...")
                 time.sleep(1.2)
@@ -241,7 +241,7 @@ with col_card:
             else:
                 st.error("❌ Access Denied: Unrecognized email or incorrect password.")
 
-# ── Feature Strip ─────────────────────────────────────────────
+# ── Feature Strip (Gemini text removed) ───────────────────────
 st.markdown("""
 <div class="feature-strip">
     <div class="feature-item">
@@ -269,7 +269,7 @@ st.markdown("""
 <div class="trust-bar">
     <p>Trusted features</p>
     <div class="trust-pills">
-        <span class="trust-pill">SQLite Auth</span>
+        <span class="trust-pill">Cloud DB Auth</span>
         <span class="trust-pill">Feature Gating</span>
         <span class="trust-pill">Trial Management</span>
         <span class="trust-pill">Secure Exec Engine</span>
