@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from database import init_db, is_trial_expired, days_remaining, PLAN_LABELS
+from database import init_db, is_account_expired, days_remaining, PLAN_LABELS
 from styles import GLOBAL_CSS, APP_CSS
 
 # ── Page config ───────────────────────────────────────────────
@@ -37,10 +37,10 @@ if is_admin:
         "email": "sangdilsingh62@gmail.com",
         "plan_type": "pro",
         "has_payment_on_file": 1,
-        "trial_end_date": None
+        "expiry_date": "2099-01-01 00:00:00"
     })
     plan = "pro"
-    trial_exp = False
+    account_exp = False
 else:
     user = st.session_state.get("user")
     
@@ -58,19 +58,19 @@ else:
     if not user.get("has_payment_on_file"):
         st.switch_page("pages/1_Start_Trial.py")
 
-    plan       = user.get("plan_type", "none")
-    trial_exp  = is_trial_expired(user)
+    plan        = user.get("plan_type", "none")
+    account_exp = is_account_expired(user)
 
-# ── Trial expiry wall ─────────────────────────────────────────
-if trial_exp:
+# ── Universal Expiry Wall ─────────────────────────────────────
+if account_exp:
     st.markdown("""
     <div style="text-align:center; padding:5rem 1rem;">
         <div style="font-size:3rem;">⏰</div>
         <h2 style="font-family:'Space Mono',monospace; color:#e6edf3; margin:1rem 0 0.5rem 0;">
-            Your Free Trial Has Expired
+            Your access has expired.
         </h2>
         <p style="color:#8b949e; font-size:1rem; max-width:460px; margin:0 auto 2rem auto;">
-            Your trial has expired. Please contact support to continue using Nexus.
+            Please contact the administrator to renew your plan.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -218,7 +218,7 @@ def trim_memory():
 # SIDEBAR
 # ============================================================
 plan_label = PLAN_LABELS.get(plan, plan)
-trial_days = days_remaining(user) if plan == "free_trial" else None
+trial_days = days_remaining(user) if "trial" in plan else None
 
 with st.sidebar:
     st.markdown("""
@@ -238,7 +238,7 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    plan_color = {"free_trial": "#e3b341", "basic": "#8b949e", "premium": "#0099ff", "pro": "#00d4aa"}.get(plan, "#8b949e")
+    plan_color = {"trial": "#e3b341", "free_trial": "#e3b341", "basic": "#8b949e", "premium": "#0099ff", "pro": "#00d4aa"}.get(plan, "#8b949e")
     trial_info = f" · {trial_days}d left" if trial_days is not None else ""
     st.markdown(f"""
     <div style="background:#1c2333; border:1px solid #30363d; border-radius:8px;
@@ -249,7 +249,6 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-label">API Configuration</div>', unsafe_allow_html=True)
-    # The exact phrase required by the user instructions
     api_key = st.text_input("Gemini API Key", type="password", placeholder="AIza…")
 
     st.markdown('<div class="section-label">Session Controls</div>', unsafe_allow_html=True)
