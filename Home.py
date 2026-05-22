@@ -193,8 +193,8 @@ with col_card:
                         st.session_state["user"]  = user
 
                         if user.get("has_payment_on_file") == 1:
-                            if not is_trial_expired(user):
-                                st.switch_page("pages/3_App.py")
+                           if not is_account_expired(user):
+                              st.switch_page("pages/3_App.py")
                         
                         st.switch_page("pages/1_Start_Trial.py")
 
