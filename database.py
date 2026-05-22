@@ -1,6 +1,6 @@
 """
 database.py — Supabase (PostgreSQL) persistence layer for Nexus Excel AI.
-Manages users table: email, plan_type, payment status, trial dates, and passwords.
+Manages users table: email, plan_type, payment status, trial dates, expiry_date, and passwords.
 """
 
 import streamlit as st
@@ -10,6 +10,7 @@ from typing import Optional
 
 PLAN_LABELS = {
     "none":         "No Plan",
+    "trial":        "2-Day Trial",
     "free_trial":   "7-Day Free Trial",
     "basic":        "Basic",
     "premium":      "Premium",
@@ -27,23 +28,13 @@ def init_connection() -> Client:
 try:
     supabase = init_connection()
 except Exception as e:
-    # Fail gracefully if secrets aren't set up yet
     supabase = None
     print(f"Supabase Connection Error: {e}")
-
-# ── Schema ────────────────────────────────────────────────────
-def init_db() -> None:
-    """
-    Schema management is now handled entirely via the Supabase SQL Editor.
-    This function remains to prevent breaking existing imports in Home.py/3_App.py.
-    """
-    pass
 
 # ── Helpers ───────────────────────────────────────────────────
 def _format_user(user: dict) -> dict:
     """Ensures the Supabase dictionary perfectly matches the old SQLite format."""
     if user:
-        # The app expects this to be a boolean, just like the old SQLite bool(row[3])
         user["has_payment_on_file"] = bool(user.get("has_payment_on_file", 0))
     return user
 
@@ -69,7 +60,6 @@ def verify_or_create_user(email: str, password: str):
     user = get_user(email)
     
     if user:
-        # Handle legacy users who might not have a password yet
         if user.get("password") is None:
             try:
                 supabase.table("users").update({"password": password}).eq("email", email).execute()
@@ -81,9 +71,8 @@ def verify_or_create_user(email: str, password: str):
         elif user.get("password") == password:
             return user
         else:
-            return False # Incorrect password
+            return False 
     else:
-        # Create new user
         try:
             new_user = {
                 "email": email,
@@ -96,16 +85,23 @@ def verify_or_create_user(email: str, password: str):
         except Exception:
             return False
 
-def admin_create_user(email: str, password: str, plan_type: str) -> bool:
-    """Admin function: Inserts or updates a user with an active paid plan."""
+def admin_create_user(email: str, password: str, plan_type: str, duration_days: int) -> bool:
+    """Admin function: Inserts or updates a user with a specific expiration."""
     if not supabase: return False
     try:
+        # Strict Trial Rule
+        if plan_type.lower() == "trial":
+            duration_days = 2
+            
+        expiry_date = (datetime.now() + timedelta(days=duration_days)).strftime("%Y-%m-%d %H:%M:%S")
+        
         user = get_user(email)
         payload = {
             "password": password,
             "plan_type": plan_type,
             "has_payment_on_file": 1,
-            "trial_end_date": None
+            "expiry_date": expiry_date,
+            "trial_end_date": None 
         }
         
         if user:
@@ -121,12 +117,11 @@ def admin_create_user(email: str, password: str, plan_type: str) -> bool:
 def upsert_user(email: str) -> dict:
     """Legacy function, kept for safety in case of background calls."""
     user = get_user(email)
-    if user:
-        return user
+    if user: return user
         
     default_user = {
         "email": email, "plan_type": "none", "has_payment_on_file": False,
-        "trial_start_date": None, "trial_end_date": None, "password": None
+        "trial_start_date": None, "trial_end_date": None, "expiry_date": None, "password": None
     }
     
     if not supabase: return default_user
@@ -141,7 +136,7 @@ def upsert_user(email: str) -> dict:
 def activate_plan(email: str, plan_type: str) -> Optional[dict]:
     """
     Set plan + mark payment received.
-    For free_trial, automatically set trial_start_date and trial_end_date.
+    Automatically assigns expiry_date for universal compliance.
     """
     if not supabase: return None
     try:
@@ -154,7 +149,8 @@ def activate_plan(email: str, plan_type: str) -> Optional[dict]:
                 "plan_type": plan_type,
                 "has_payment_on_file": 1,
                 "trial_start_date": trial_start,
-                "trial_end_date": trial_end
+                "trial_end_date": trial_end,
+                "expiry_date": trial_end
             }).eq("email", email).execute()
         else:
             supabase.table("users").update({
@@ -169,29 +165,30 @@ def activate_plan(email: str, plan_type: str) -> Optional[dict]:
 def has_used_trial(email: str) -> bool:
     """Return True if this email has EVER activated a free trial."""
     user = get_user(email)
-    if not user:
-        return False
+    if not user: return False
     return user.get("trial_start_date") is not None
 
-def is_trial_expired(user: dict) -> bool:
-    """Return True if the user is on free_trial and the trial has ended."""
-    if user.get("plan_type", "none") != "free_trial":
-        return False
-    if not user.get("trial_end_date"):
-        return False
+def is_account_expired(user: dict) -> bool:
+    """Universal Check: Returns True if the current date is past the user's expiry_date."""
+    if not user or not user.get("expiry_date"):
+        return False # Indefinite access if no expiry is set
     try:
-        # Slicing [:19] protects against minor timezone differences if present
-        end = datetime.strptime(user["trial_end_date"][:19], "%Y-%m-%d %H:%M:%S")
+        # Slicing [:19] protects against minor timezone/Supabase formatting differences
+        end = datetime.strptime(str(user["expiry_date"])[:19], "%Y-%m-%d %H:%M:%S")
         return datetime.now() > end
     except Exception:
         return False
 
+def is_trial_expired(user: dict) -> bool:
+    """Legacy check fallback."""
+    return is_account_expired(user)
+
 def days_remaining(user: dict) -> int:
-    """Return whole days left in trial (0 if expired or non-trial)."""
-    if user.get("plan_type", "none") != "free_trial" or not user.get("trial_end_date"):
+    """Return whole days left in access (0 if expired)."""
+    if not user.get("expiry_date"):
         return 0
     try:
-        end  = datetime.strptime(user["trial_end_date"][:19], "%Y-%m-%d %H:%M:%S")
+        end  = datetime.strptime(str(user["expiry_date"])[:19], "%Y-%m-%d %H:%M:%S")
         diff = end - datetime.now()
         return max(0, diff.days)
     except Exception:
@@ -202,11 +199,9 @@ def get_admin_stats() -> dict:
     """Returns aggregated data for the admin dashboard from Supabase."""
     if not supabase: return {"total_users": 0, "plans": {}}
     try:
-        # Fetch total user count
         count_res = supabase.table("users").select("id", count="exact").execute()
         total = count_res.count if count_res.count is not None else 0
         
-        # Group users by plan_type (Supabase-py requires client-side grouping)
         plan_res = supabase.table("users").select("plan_type").execute()
         plans = {}
         for row in plan_res.data:
@@ -218,11 +213,14 @@ def get_admin_stats() -> dict:
         return {"total_users": 0, "plans": {}}
 
 def block_user_trial(email: str) -> bool:
-    """Manually forces a user's trial to expire to block their access."""
+    """Manually forces a user's account/trial to expire."""
     if not supabase: return False
     try:
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
-        supabase.table("users").update({"trial_end_date": yesterday}).eq("email", email).execute()
+        supabase.table("users").update({
+            "expiry_date": yesterday, 
+            "trial_end_date": yesterday
+        }).eq("email", email).execute()
         return True
     except Exception:
         return False
