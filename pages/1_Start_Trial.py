@@ -1,10 +1,10 @@
 """
 pages/1_Start_Trial.py — Nexus Excel AI · Start Trial
-Simple one-click activation for the 7-day free trial.
+Simple one-click activation for the 2-day free trial.
 """
 
 import streamlit as st
-import sys, os, time
+import sys, os, time, datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from database import activate_plan, has_used_trial
@@ -64,7 +64,7 @@ if has_used_trial(email):
         <div class="trial-icon">🚫</div>
         <h3 style="color:var(--danger); font-family:var(--font-mono); margin-bottom: 0.5rem;">Trial Already Used</h3>
         <p style="color:var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
-            The email account below has already claimed a 7-day free trial.
+            The email account below has already claimed a free trial.
         </p>
         <div class="trial-email-box">{email}</div>
         <p style="color:var(--text-muted); font-size: 0.9rem;">
@@ -85,7 +85,7 @@ else:
         <div class="trial-icon">🎁</div>
         <h3 style="color:var(--accent); font-family:var(--font-mono); margin-bottom: 0.5rem;">Start Free Trial</h3>
         <p style="color:var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
-            Instantly unlock all Nexus Pro features for 7 full days. No credit card required.
+            Instantly unlock all Nexus Pro features for 2 full days. No credit card required.
         </p>
         <div class="trial-email-box">{email}</div>
     </div>
@@ -99,12 +99,19 @@ else:
     if start_btn:
         with st.spinner("Activating your trial…"):
             try:
-                updated_user = activate_plan(email, "free_trial")
+                updated_user = activate_plan(email, "trial")
             except Exception:
                 updated_user = None
                 
             if not updated_user:
-                updated_user = {"email": email, "plan_type": "free_trial", "has_payment_on_file": 1, "trial_end_date": "2030-01-01 00:00:00"}
+                # Updated to use expiry_date and a 2-day limit
+                expiry = (datetime.datetime.now() + datetime.timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+                updated_user = {
+                    "email": email, 
+                    "plan_type": "trial", 
+                    "has_payment_on_file": 1, 
+                    "expiry_date": expiry
+                }
             
             st.session_state["user"] = updated_user
         
