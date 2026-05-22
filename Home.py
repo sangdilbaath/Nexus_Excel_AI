@@ -7,7 +7,7 @@ import streamlit as st
 import sys, os, time, re
 sys.path.insert(0, os.path.dirname(__file__))
 
-from database import init_db, verify_or_create_user, activate_plan, is_trial_expired, upsert_user
+from database import init_db, verify_or_create_user, activate_plan, is_account_expired, upsert_user
 from styles import GLOBAL_CSS
 
 # ── Page config ───────────────────────────────────────────────
