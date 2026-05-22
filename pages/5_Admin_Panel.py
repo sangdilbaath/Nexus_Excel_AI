@@ -10,7 +10,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from styles import GLOBAL_CSS, APP_CSS
-from database import get_admin_stats, block_user_trial, admin_create_user, DB_PATH
+from database import get_admin_stats, block_user_trial, admin_create_user
 
 # ── Page config ───────────────────────────────────────────────
 st.set_page_config(
@@ -150,7 +150,7 @@ with st.container():
                 st.warning("⚠️ Please enter a valid email address.")
 
 # ============================================================
-# DATABASE MANAGEMENT
+# DATABASE MANAGEMENT (CLOUD)
 # ============================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<div class="section-label">Database Management</div>', unsafe_allow_html=True)
@@ -158,23 +158,14 @@ st.markdown('<div class="section-label">Database Management</div>', unsafe_allow
 with st.container():
     st.markdown("""
     <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
-        <span style="color: var(--text-muted); font-size: 0.85rem;">Download a secure snapshot of the SQLite database to your local machine for advanced querying and backups.</span>
+        <strong style="color: var(--text-primary); font-family: var(--font-body); font-size: 1.1rem;">Cloud Database (Supabase)</strong><br>
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Your database is now permanently hosted in the cloud. To view user tables, run SQL queries, or export backups, please log in to your Supabase dashboard.</span>
     </div>
     """, unsafe_allow_html=True)
     
-    col_dl, _ = st.columns([1, 2])
-    with col_dl:
-        try:
-            with open(DB_PATH, "rb") as f:
-                st.download_button(
-                    label="📥 Download nexus.db",
-                    data=f,
-                    file_name="nexus.db",
-                    mime="application/x-sqlite3",
-                    use_container_width=True
-                )
-        except FileNotFoundError:
-            st.error("Database file not found. It may not have been created yet.")
+    st.markdown('<div class="cta-btn" style="max-width: 250px;">', unsafe_allow_html=True)
+    st.link_button("↗ Open Supabase Dashboard", "https://supabase.com/dashboard", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # NAVIGATION
